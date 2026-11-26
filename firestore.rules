@@ -1,0 +1,393 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function parentUserExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId))
+        || existsAfter(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function hasImmutableMeta() {
+      return incoming().teacherId == existing().teacherId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+    }
+
+    function isValidDateStr(d) {
+      return d is string && d.size() == 10 && d.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidTimeStr(t) {
+      return t is string && t.size() == 5 && t.matches('^[0-2][0-9]:[0-5][0-9]$');
+    }
+
+    // Validation Blueprints
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['teacherId', 'displayName', 'email', 'academicYear', 'activeSemester', 'kkmDefault', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'displayName', 'email', 'schoolName', 'nip', 'subject', 'academicYear', 'activeSemester', 'kkmDefault', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 180
+        && data.academicYear is string && data.academicYear.size() >= 4 && data.academicYear.size() <= 20
+        && data.activeSemester in ['Ganjil', 'Genap']
+        && data.kkmDefault is number && data.kkmDefault >= 0 && data.kkmDefault <= 100
+        && (!('schoolName' in data) || (data.schoolName is string && data.schoolName.size() <= 180))
+        && (!('nip' in data) || (data.nip is string && data.nip.size() <= 40))
+        && (!('subject' in data) || (data.subject is string && data.subject.size() <= 120))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudent(data, userId) {
+      return data.keys().hasAll(['teacherId', 'nis', 'name', 'className', 'gender', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'nis', 'name', 'className', 'gender', 'guardianPhone', 'status', 'notes', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && data.nis is string && data.nis.size() >= 1 && data.nis.size() <= 30
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.className is string && data.className.size() >= 1 && data.className.size() <= 40
+        && data.gender in ['L', 'P']
+        && data.status in ['Aktif', 'Mutasi', 'Lulus']
+        && (!('guardianPhone' in data) || (data.guardianPhone is string && data.guardianPhone.size() <= 30))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSchedule(data, userId) {
+      return data.keys().hasAll(['teacherId', 'dayOfWeek', 'startTime', 'endTime', 'className', 'subject', 'semester', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'dayOfWeek', 'startTime', 'endTime', 'className', 'subject', 'room', 'topic', 'semester', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && data.dayOfWeek is number && data.dayOfWeek >= 1 && data.dayOfWeek <= 7
+        && isValidTimeStr(data.startTime)
+        && isValidTimeStr(data.endTime)
+        && data.className is string && data.className.size() >= 1 && data.className.size() <= 40
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.semester in ['Ganjil', 'Genap']
+        && (!('room' in data) || (data.room is string && data.room.size() <= 60))
+        && (!('topic' in data) || (data.topic is string && data.topic.size() <= 200))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAcademicEvent(data, userId) {
+      return data.keys().hasAll(['teacherId', 'title', 'date', 'category', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'title', 'date', 'endDate', 'category', 'description', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && isValidDateStr(data.date)
+        && (!('endDate' in data) || data.endDate == '' || isValidDateStr(data.endDate))
+        && data.category in ['libur_nasional', 'libur_sekolah', 'ujian', 'kegiatan_sekolah', 'efektif']
+        && (!('description' in data) || (data.description is string && data.description.size() <= 600))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeachingDocument(data, userId) {
+      return data.keys().hasAll(['teacherId', 'docType', 'title', 'phaseOrGrade', 'semester', 'subject', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'docType', 'title', 'phaseOrGrade', 'semester', 'subject', 'targetOutcome', 'kktpThreshold', 'durationHours', 'contentSummary', 'status', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && data.docType in ['cp_atp', 'prota', 'promes', 'modul_ajar', 'kktp']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.phaseOrGrade is string && data.phaseOrGrade.size() >= 1 && data.phaseOrGrade.size() <= 60
+        && data.semester in ['Ganjil', 'Genap', 'Tahunan']
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.status in ['Draf', 'Siap Pakai', 'Terlaksana']
+        && (!('targetOutcome' in data) || (data.targetOutcome is string && data.targetOutcome.size() <= 1200))
+        && (!('kktpThreshold' in data) || (data.kktpThreshold is number && data.kktpThreshold >= 0 && data.kktpThreshold <= 100))
+        && (!('durationHours' in data) || (data.durationHours is number && data.durationHours >= 0 && data.durationHours <= 500))
+        && (!('contentSummary' in data) || (data.contentSummary is string && data.contentSummary.size() <= 3000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAttendanceSession(data, userId) {
+      return data.keys().hasAll(['teacherId', 'date', 'className', 'subject', 'semester', 'records', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'date', 'className', 'subject', 'semester', 'records', 'notes', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && isValidDateStr(data.date)
+        && data.className is string && data.className.size() >= 1 && data.className.size() <= 40
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.semester in ['Ganjil', 'Genap']
+        && data.records is map && data.records.size() <= 200
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeachingJournal(data, userId) {
+      return data.keys().hasAll(['teacherId', 'date', 'className', 'subject', 'meetingNo', 'topic', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'date', 'className', 'subject', 'meetingNo', 'topic', 'learningActivity', 'studentProgressNote', 'reflection', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && isValidDateStr(data.date)
+        && data.className is string && data.className.size() >= 1 && data.className.size() <= 40
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.meetingNo is number && data.meetingNo >= 1 && data.meetingNo <= 200
+        && data.topic is string && data.topic.size() >= 1 && data.topic.size() <= 240
+        && (!('learningActivity' in data) || (data.learningActivity is string && data.learningActivity.size() <= 1500))
+        && (!('studentProgressNote' in data) || (data.studentProgressNote is string && data.studentProgressNote.size() <= 1500))
+        && (!('reflection' in data) || (data.reflection is string && data.reflection.size() <= 1000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAssessment(data, userId) {
+      return data.keys().hasAll(['teacherId', 'title', 'category', 'className', 'subject', 'semester', 'month', 'date', 'maxScore', 'kktp', 'scores', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'title', 'category', 'className', 'subject', 'semester', 'month', 'date', 'maxScore', 'kktp', 'instrumentNotes', 'scores', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.category in ['formatif', 'sumatif', 'tugas', 'pts', 'pas', 'praktik']
+        && data.className is string && data.className.size() >= 1 && data.className.size() <= 40
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.semester in ['Ganjil', 'Genap']
+        && data.month is string && data.month.size() == 7 && data.month.matches('^\\d{4}-\\d{2}$')
+        && isValidDateStr(data.date)
+        && data.maxScore is number && data.maxScore >= 1 && data.maxScore <= 1000
+        && data.kktp is number && data.kktp >= 0 && data.kktp <= 100
+        && (!('instrumentNotes' in data) || (data.instrumentNotes is string && data.instrumentNotes.size() <= 1500))
+        && data.scores is map && data.scores.size() <= 200
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGuidanceNote(data, userId) {
+      return data.keys().hasAll(['teacherId', 'studentId', 'studentName', 'className', 'date', 'category', 'issueSummary', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'studentId', 'studentName', 'className', 'date', 'category', 'issueSummary', 'followUpPlan', 'status', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && isValidId(data.studentId)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 120
+        && data.className is string && data.className.size() >= 1 && data.className.size() <= 40
+        && isValidDateStr(data.date)
+        && data.category in ['akademik', 'kehadiran', 'perilaku', 'prestasi']
+        && data.issueSummary is string && data.issueSummary.size() >= 1 && data.issueSummary.size() <= 1000
+        && (!('followUpPlan' in data) || (data.followUpPlan is string && data.followUpPlan.size() <= 1000))
+        && data.status in ['perlu_tindak_lanjut', 'dalam_bimbingan', 'selesai']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDailyTask(data, userId) {
+      return data.keys().hasAll(['teacherId', 'title', 'dueDate', 'priority', 'completed', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['teacherId', 'title', 'dueDate', 'dueTime', 'priority', 'category', 'completed', 'createdAt', 'updatedAt'])
+        && data.teacherId == userId
+        && isValidId(data.teacherId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && isValidDateStr(data.dueDate)
+        && (!('dueTime' in data) || data.dueTime == '' || isValidTimeStr(data.dueTime))
+        && data.priority in ['tinggi', 'sedang', 'rendah']
+        && (!('category' in data) || (data.category is string && data.category.size() <= 60))
+        && data.completed is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Teacher Profile Root Document
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId) && (resource == null || existing().teacherId == request.auth.uid);
+      allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+      allow create: if isVerifiedOwner(userId) && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedOwner(userId) && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && hasImmutableMeta()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'schoolName', 'nip', 'subject', 'academicYear', 'activeSemester', 'kkmDefault', 'updatedAt']);
+      allow delete: if false;
+
+      // Students
+      match /students/{studentId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(studentId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(studentId)
+          && isValidStudent(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(studentId)
+          && isValidStudent(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['nis', 'name', 'className', 'gender', 'guardianPhone', 'status', 'notes', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(studentId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Schedules
+      match /schedules/{scheduleId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(scheduleId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(scheduleId)
+          && isValidSchedule(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(scheduleId)
+          && isValidSchedule(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['dayOfWeek', 'startTime', 'endTime', 'className', 'subject', 'room', 'topic', 'semester', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(scheduleId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Academic Calendar Events
+      match /academicEvents/{eventId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(eventId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(eventId)
+          && isValidAcademicEvent(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(eventId)
+          && isValidAcademicEvent(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'date', 'endDate', 'category', 'description', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(eventId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Teaching Documents (CP/ATP, Prota, Promes, Modul Ajar, KKTP)
+      match /teachingDocs/{docId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(docId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(docId)
+          && isValidTeachingDocument(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(docId)
+          && isValidTeachingDocument(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['docType', 'title', 'phaseOrGrade', 'semester', 'subject', 'targetOutcome', 'kktpThreshold', 'durationHours', 'contentSummary', 'status', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(docId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Attendance Sessions
+      match /attendance/{attendanceId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(attendanceId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(attendanceId)
+          && isValidAttendanceSession(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(attendanceId)
+          && isValidAttendanceSession(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['date', 'className', 'subject', 'semester', 'records', 'notes', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(attendanceId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Teaching Journals
+      match /journals/{journalId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(journalId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(journalId)
+          && isValidTeachingJournal(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(journalId)
+          && isValidTeachingJournal(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['date', 'className', 'subject', 'meetingNo', 'topic', 'learningActivity', 'studentProgressNote', 'reflection', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(journalId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Assessments & Grades
+      match /assessments/{assessmentId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(assessmentId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(assessmentId)
+          && isValidAssessment(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(assessmentId)
+          && isValidAssessment(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'className', 'subject', 'semester', 'month', 'date', 'maxScore', 'kktp', 'instrumentNotes', 'scores', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(assessmentId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Guidance / Follow-Up Notes
+      match /guidanceNotes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(noteId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(noteId)
+          && isValidGuidanceNote(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(noteId)
+          && isValidGuidanceNote(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['studentId', 'studentName', 'className', 'date', 'category', 'issueSummary', 'followUpPlan', 'status', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(noteId) && existing().teacherId == request.auth.uid;
+      }
+
+      // Daily Tasks
+      match /dailyTasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(taskId) && existing().teacherId == request.auth.uid;
+        allow list: if isOwner(userId) && resource.data.teacherId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(taskId)
+          && isValidDailyTask(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserExists(userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(taskId)
+          && isValidDailyTask(incoming(), userId)
+          && hasImmutableMeta()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'dueDate', 'dueTime', 'priority', 'category', 'completed', 'updatedAt'])
+          && parentUserExists(userId);
+        allow delete: if isVerifiedOwner(userId) && isValidId(userId) && isValidId(taskId) && existing().teacherId == request.auth.uid;
+      }
+    }
+  }
+}

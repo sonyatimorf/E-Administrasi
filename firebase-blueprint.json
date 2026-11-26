@@ -1,0 +1,269 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Profil guru dan preferensi tahun ajaran aktif.",
+      "type": "object",
+      "properties": {
+        "teacherId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 180
+        },
+        "schoolName": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "nip": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "academicYear": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "activeSemester": {
+          "type": "string",
+          "enum": ["Ganjil", "Genap"]
+        },
+        "kkmDefault": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["teacherId", "displayName", "email", "academicYear", "activeSemester", "kkmDefault", "createdAt", "updatedAt"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Data induk siswa per kelas.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "nis": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "className": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "guardianPhone": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["Aktif", "Mutasi", "Lulus"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "nis", "name", "className", "gender", "status", "createdAt", "updatedAt"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Jadwal mengajar mingguan guru.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "dayOfWeek": { "type": "number" },
+        "startTime": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$", "maxLength": 5 },
+        "endTime": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$", "maxLength": 5 },
+        "className": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "room": { "type": "string", "maxLength": 60 },
+        "topic": { "type": "string", "maxLength": 200 },
+        "semester": { "type": "string", "enum": ["Ganjil", "Genap"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "dayOfWeek", "startTime", "endTime", "className", "subject", "semester", "createdAt", "updatedAt"]
+    },
+    "AcademicEvent": {
+      "title": "AcademicEvent",
+      "description": "Agenda kalender pendidikan, jadwal ujian, dan hari libur sekolah.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "endDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "category": { "type": "string", "enum": ["libur_nasional", "libur_sekolah", "ujian", "kegiatan_sekolah", "efektif"] },
+        "description": { "type": "string", "maxLength": 600 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "title", "date", "category", "createdAt", "updatedAt"]
+    },
+    "TeachingDocument": {
+      "title": "TeachingDocument",
+      "description": "Perangkat ajar kurikulum: CP/ATP, Prota, Promes, Modul Ajar, KKTP.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "docType": { "type": "string", "enum": ["cp_atp", "prota", "promes", "modul_ajar", "kktp"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "phaseOrGrade": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "semester": { "type": "string", "enum": ["Ganjil", "Genap", "Tahunan"] },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "targetOutcome": { "type": "string", "maxLength": 1200 },
+        "kktpThreshold": { "type": "number" },
+        "durationHours": { "type": "number" },
+        "contentSummary": { "type": "string", "maxLength": 3000 },
+        "status": { "type": "string", "enum": ["Draf", "Siap Pakai", "Terlaksana"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "docType", "title", "phaseOrGrade", "semester", "subject", "status", "createdAt", "updatedAt"]
+    },
+    "AttendanceSession": {
+      "title": "AttendanceSession",
+      "description": "Presensi siswa per tanggal dan kelas.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "className": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "semester": { "type": "string", "enum": ["Ganjil", "Genap"] },
+        "records": { "type": "object" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "date", "className", "subject", "semester", "records", "createdAt", "updatedAt"]
+    },
+    "TeachingJournal": {
+      "title": "TeachingJournal",
+      "description": "Jurnal mengajar harian dan catatan perkembangan siswa.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "className": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "meetingNo": { "type": "number" },
+        "topic": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "learningActivity": { "type": "string", "maxLength": 1500 },
+        "studentProgressNote": { "type": "string", "maxLength": 1500 },
+        "reflection": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "date", "className", "subject", "meetingNo", "topic", "createdAt", "updatedAt"]
+    },
+    "Assessment": {
+      "title": "Assessment",
+      "description": "Instrumen penilaian, daftar nilai, dan konfigurasi KKTP.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "category": { "type": "string", "enum": ["formatif", "sumatif", "tugas", "pts", "pas", "praktik"] },
+        "className": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "semester": { "type": "string", "enum": ["Ganjil", "Genap"] },
+        "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$", "maxLength": 7 },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "maxScore": { "type": "number" },
+        "kktp": { "type": "number" },
+        "instrumentNotes": { "type": "string", "maxLength": 1500 },
+        "scores": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "title", "category", "className", "subject", "semester", "month", "date", "maxScore", "kktp", "scores", "createdAt", "updatedAt"]
+    },
+    "GuidanceNote": {
+      "title": "GuidanceNote",
+      "description": "Catatan tindak lanjut dan bimbingan siswa.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "className": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "category": { "type": "string", "enum": ["akademik", "kehadiran", "perilaku", "prestasi"] },
+        "issueSummary": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "followUpPlan": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["perlu_tindak_lanjut", "dalam_bimbingan", "selesai"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "studentId", "studentName", "className", "date", "category", "issueSummary", "status", "createdAt", "updatedAt"]
+    },
+    "DailyTask": {
+      "title": "DailyTask",
+      "description": "Rencana tugas harian guru.",
+      "type": "object",
+      "properties": {
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "dueDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "dueTime": { "type": "string", "maxLength": 5 },
+        "priority": { "type": "string", "enum": ["tinggi", "sedang", "rendah"] },
+        "category": { "type": "string", "maxLength": 60 },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherId", "title", "dueDate", "priority", "completed", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Dokumen profil guru dan konfigurasi semester aktif."
+    },
+    "/users/{userId}/students/{studentId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Daftar siswa yang dikelola oleh guru."
+    },
+    "/users/{userId}/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/Schedule" },
+      "description": "Jadwal mengajar mingguan guru."
+    },
+    "/users/{userId}/academicEvents/{eventId}": {
+      "schema": { "$ref": "#/entities/AcademicEvent" },
+      "description": "Kalender pendidikan, jadwal ujian, dan hari libur."
+    },
+    "/users/{userId}/teachingDocs/{docId}": {
+      "schema": { "$ref": "#/entities/TeachingDocument" },
+      "description": "Dokumen perangkat ajar (CP/ATP, Prota, Promes, Modul Ajar, KKTP)."
+    },
+    "/users/{userId}/attendance/{attendanceId}": {
+      "schema": { "$ref": "#/entities/AttendanceSession" },
+      "description": "Catatan presensi harian per kelas dan mata pelajaran."
+    },
+    "/users/{userId}/journals/{journalId}": {
+      "schema": { "$ref": "#/entities/TeachingJournal" },
+      "description": "Jurnal mengajar harian dan perkembangan siswa."
+    },
+    "/users/{userId}/assessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/Assessment" },
+      "description": "Instrumen asesmen, daftar nilai siswa, remedial, dan pengayaan."
+    },
+    "/users/{userId}/guidanceNotes/{noteId}": {
+      "schema": { "$ref": "#/entities/GuidanceNote" },
+      "description": "Catatan bimbingan dan tindak lanjut siswa."
+    },
+    "/users/{userId}/dailyTasks/{taskId}": {
+      "schema": { "$ref": "#/entities/DailyTask" },
+      "description": "Rencana tugas harian guru."
+    }
+  }
+}

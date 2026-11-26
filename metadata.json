@@ -1,0 +1,6 @@
+{
+  "name": "KaryaAjar",
+  "description": "Aplikasi administrasi guru terpadu untuk manajemen nilai otomatis, presensi real-time, perangkat ajar Kurikulum Merdeka, jurnal mengajar, kalender akademik, dan ekspor laporan PDF/Excel dengan sinkronisasi cloud serta mode luring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
